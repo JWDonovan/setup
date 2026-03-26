@@ -17,13 +17,14 @@
             name = "bootstrap-vm";
             runtimeInputs = with pkgs; [
               bash
+              bitwarden-cli
               coreutils
               dosfstools
               e2fsprogs
               git
-              gh
               gnugrep
               gnused
+              jq
               openssh
               parted
               util-linux
