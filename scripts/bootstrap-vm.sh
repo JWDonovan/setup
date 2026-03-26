@@ -4,20 +4,20 @@ set -euo pipefail
 repo="git@github.com:jwdonovan/dotfiles.git"
 host="vm"
 disk="/dev/vda"
-bw_item="dotfiles-bootstrap-deploy-key"
 bw_email=""
-bw_server=""
 ssh_key_path="/root/.ssh/id_ed25519"
 worktree=""
+readonly bw_item_name="dotfiles-bootstrap-deploy-key"
 
 usage() {
   cat <<'EOF'
-Usage: bootstrap-vm [--repo git@github.com:jwdonovan/dotfiles.git] [--host vm] [--disk /dev/vda] [--bw-item dotfiles-bootstrap-deploy-key]
+Usage: bootstrap-vm [--repo git@github.com:jwdonovan/dotfiles.git] [--host vm] [--disk /dev/vda] [--bw-email you@example.com]
 
 This bootstrap script is intended to run from the NixOS installer
 environment. It logs into Bitwarden if needed, retrieves an SSH deploy key
-from a Bitwarden Secure Note, clones the private dotfiles repository over
-SSH, and hands off to the host installer inside that repository.
+from the Secure Note named dotfiles-bootstrap-deploy-key, clones the private
+dotfiles repository over SSH, and hands off to the host installer inside
+that repository.
 EOF
 }
 
@@ -47,16 +47,8 @@ while [[ $# -gt 0 ]]; do
       disk="$2"
       shift 2
       ;;
-    --bw-item)
-      bw_item="$2"
-      shift 2
-      ;;
     --bw-email)
       bw_email="$2"
-      shift 2
-      ;;
-    --bw-server)
-      bw_server="$2"
       shift 2
       ;;
     -h|--help)
@@ -80,21 +72,27 @@ trap cleanup EXIT
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
-if [[ -n "${bw_server}" ]]; then
-  bw config server "${bw_server}" >/dev/null
-fi
+status="$(bw status 2>/dev/null | jq -r '.status // empty' || true)"
 
-if bw status 2>/dev/null | grep -q '"status"[[:space:]]*:[[:space:]]*"unauthenticated"'; then
+if [[ "${status}" == "unauthenticated" || -z "${status}" ]]; then
   echo "Bitwarden login is required."
   if [[ -n "${bw_email}" ]]; then
-    bw login "${bw_email}"
+    BW_SESSION="$(bw login "${bw_email}" --raw)"
   else
-    bw login
+    BW_SESSION="$(bw login --raw)"
+  fi
+elif [[ "${status}" == "locked" ]]; then
+  echo "Unlocking Bitwarden."
+  BW_SESSION="$(bw unlock --raw)"
+else
+  if [[ -z "${BW_SESSION:-}" ]]; then
+    echo "Bitwarden reports an unlocked vault, but BW_SESSION is not set. Unlocking again."
+    BW_SESSION="$(bw unlock --raw)"
+  else
+    echo "Using existing unlocked Bitwarden session."
   fi
 fi
 
-echo "Unlocking Bitwarden."
-BW_SESSION="$(bw unlock --raw)"
 export BW_SESSION
 
 echo "Syncing Bitwarden vault."
@@ -104,9 +102,9 @@ install -d -m 0700 /root/.ssh
 touch /root/.ssh/known_hosts
 ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null || true
 
-echo "Retrieving SSH deploy key from Bitwarden item '${bw_item}'."
-bw list items --search "${bw_item}" --session "${BW_SESSION}" \
-  | jq -er --arg name "${bw_item}" '
+echo "Retrieving SSH deploy key from Bitwarden item '${bw_item_name}'."
+bw list items --search "${bw_item_name}" --session "${BW_SESSION}" \
+  | jq -er --arg name "${bw_item_name}" '
       map(select(.name == $name)) |
       if length == 1 then .[0].notes
       elif length == 0 then error("No Bitwarden item named \($name) was found.")
@@ -118,9 +116,12 @@ bw list items --search "${bw_item}" --session "${BW_SESSION}" \
 chmod 600 "${ssh_key_path}"
 
 if ! grep -q "BEGIN OPENSSH PRIVATE KEY" "${ssh_key_path}"; then
-  echo "Bitwarden item '${bw_item}' did not contain an OpenSSH private key in its Notes field." >&2
+  echo "Bitwarden item '${bw_item_name}' did not contain an OpenSSH private key in its Notes field." >&2
   exit 1
 fi
+
+bw lock --session "${BW_SESSION}" >/dev/null 2>&1 || true
+unset BW_SESSION
 
 worktree="$(mktemp -d /tmp/dotfiles.XXXXXX)"
 
