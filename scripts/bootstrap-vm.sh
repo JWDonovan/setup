@@ -128,6 +128,10 @@ worktree="$(mktemp -d /tmp/dotfiles.XXXXXX)"
 GIT_SSH_COMMAND="ssh -i ${ssh_key_path} -o IdentitiesOnly=yes -o UserKnownHostsFile=/root/.ssh/known_hosts" \
   git clone "${repo}" "${worktree}"
 
-rm -f "${ssh_key_path}"
+"${worktree}/hosts/${host}/install.sh" \
+  --disk "${disk}" \
+  --host "${host}" \
+  --repo-url "${repo}" \
+  --deploy-key "${ssh_key_path}"
 
-"${worktree}/hosts/${host}/install.sh" --disk "${disk}" --host "${host}"
+rm -f "${ssh_key_path}"
