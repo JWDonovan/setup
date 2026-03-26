@@ -128,7 +128,14 @@ worktree="$(mktemp -d /tmp/dotfiles.XXXXXX)"
 GIT_SSH_COMMAND="ssh -i ${ssh_key_path} -o IdentitiesOnly=yes -o UserKnownHostsFile=/root/.ssh/known_hosts" \
   git clone "${repo}" "${worktree}"
 
-"${worktree}/hosts/${host}/install.sh" \
+host_installer="${worktree}/hosts/${host}/install.sh"
+
+if [[ ! -f "${host_installer}" ]]; then
+  echo "Host installer not found: ${host_installer}" >&2
+  exit 1
+fi
+
+bash "${host_installer}" \
   --disk "${disk}" \
   --host "${host}" \
   --repo-url "${repo}" \
