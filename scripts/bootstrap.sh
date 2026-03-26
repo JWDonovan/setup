@@ -11,13 +11,13 @@ readonly bw_item_name="dotfiles-bootstrap-deploy-key"
 
 usage() {
   cat <<'EOF'
-Usage: bootstrap-vm [--repo git@github.com:jwdonovan/dotfiles.git] [--host vm] [--disk /dev/vda] [--bw-email you@example.com]
+Usage: bootstrap [--repo git@github.com:jwdonovan/dotfiles.git] [--host vm] [--disk /dev/vda] [--bw-email you@example.com]
 
 This bootstrap script is intended to run from the NixOS installer
 environment. It logs into Bitwarden if needed, retrieves an SSH deploy key
 from the Secure Note named dotfiles-bootstrap-deploy-key, clones the private
-dotfiles repository over SSH, and hands off to the host installer inside
-that repository.
+dotfiles repository over SSH, and hands off to the selected host installer
+inside that repository.
 EOF
 }
 

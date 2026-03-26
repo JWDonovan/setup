@@ -13,12 +13,13 @@
       apps = forAllSystems (system:
         let
           pkgs = import nixpkgs { inherit system; };
-          bootstrapVm = pkgs.writeShellApplication {
-            name = "bootstrap-vm";
+          bootstrapInstaller = pkgs.writeShellApplication {
+            name = "bootstrap";
             runtimeInputs = with pkgs; [
               bash
               bitwarden-cli
               coreutils
+              cryptsetup
               dosfstools
               e2fsprogs
               git
@@ -29,17 +30,17 @@
               parted
               util-linux
             ];
-            text = builtins.readFile ./scripts/bootstrap-vm.sh;
+            text = builtins.readFile ./scripts/bootstrap.sh;
           };
         in {
           default = {
             type = "app";
-            program = "${bootstrapVm}/bin/bootstrap-vm";
+            program = "${bootstrapInstaller}/bin/bootstrap";
           };
 
-          vm = {
+          install = {
             type = "app";
-            program = "${bootstrapVm}/bin/bootstrap-vm";
+            program = "${bootstrapInstaller}/bin/bootstrap";
           };
         });
     };
